@@ -125,6 +125,13 @@ Rules
       -------------------------------
       x <skos:exactMatch>    z
 
+  Id: skos_broad_match_inverse
+
+    this <rdf:type> <skos:Concept>
+    this <skos:broadMatch> parent
+    -------------------------------
+    parent <skos:narrowMatch> this
+
   Id: pdp_slovnik_1
 
       term <rdf:type> <skos:Concept>
@@ -135,4 +142,3 @@ Rules
       -------------------------------
       this <termit:používá-pojmy-ze-slovníku> target
 }
-
