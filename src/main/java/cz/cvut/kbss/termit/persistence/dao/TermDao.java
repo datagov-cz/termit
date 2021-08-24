@@ -631,19 +631,19 @@ public class TermDao extends WorkspaceBasedAssetDao<Term> {
             case "cs":
                 return
                         r(r(r(r(r(r(r(r(r(r(r(r(r(r("lcase(" + var + ")",
-                                "'á'", "'azz'"),
-                                "'č'", "'czz'"),
-                                "'ď'", "'dzz'"),
-                                "'é'", "'ezz'"),
-                                "'ě'", "'ezz'"),
-                                "'í'", "'izz'"),
-                                "'ň'", "'nzz'"),
-                                "'ó'", "'ozz'"),
-                                "'ř'", "'rzz'"),
-                                "'š'", "'szz'"),
-                                "'ť'", "'tzz'"),
-                                "'ú'", "'uzz'"),
-                                "'ý'", "'yzz'"),
+                                                                                                                                        "'á'", "'azz'"),
+                                                                                                                                "'č'", "'czz'"),
+                                                                                                                        "'ď'", "'dzz'"),
+                                                                                                                "'é'", "'ezz'"),
+                                                                                                        "'ě'", "'ezz'"),
+                                                                                                "'í'", "'izz'"),
+                                                                                        "'ň'", "'nzz'"),
+                                                                                "'ó'", "'ozz'"),
+                                                                        "'ř'", "'rzz'"),
+                                                                "'š'", "'szz'"),
+                                                        "'ť'", "'tzz'"),
+                                                "'ú'", "'uzz'"),
+                                        "'ý'", "'yzz'"),
                                 "'ž'", "'zzz'");
             default:
                 return "lcase(" + var + ")";
