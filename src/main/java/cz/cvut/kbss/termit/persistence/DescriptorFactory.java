@@ -16,6 +16,7 @@ import cz.cvut.kbss.jopa.model.descriptors.EntityDescriptor;
 import cz.cvut.kbss.jopa.model.descriptors.FieldDescriptor;
 import cz.cvut.kbss.jopa.model.metamodel.FieldSpecification;
 import cz.cvut.kbss.termit.dto.TermInfo;
+import cz.cvut.kbss.termit.dto.listing.TermDto;
 import cz.cvut.kbss.termit.model.AbstractTerm;
 import cz.cvut.kbss.termit.model.Glossary;
 import cz.cvut.kbss.termit.model.Term;
@@ -68,11 +69,13 @@ public class DescriptorFactory {
      * Gets field specification for the specified attribute from persistence unit metamodel.
      *
      * @param entityCls Entity class
-     * @param attName   Name of attribute in the entity class
+     * @param attribute Name of attribute in the entity class
      * @return Metamodel field specification
      */
-    public <T> FieldSpecification<? super T, ?> fieldSpec(Class<T> entityCls, String attName) {
-        return persistenceUtils.getMetamodel().entity(entityCls).getFieldSpecification(attName);
+    public <T> FieldSpecification<? super T, ?> fieldSpec(Class<T> entityCls, String attribute) {
+        Objects.requireNonNull(entityCls);
+        Objects.requireNonNull(attribute);
+        return persistenceUtils.getMetamodel().entity(entityCls).getFieldSpecification(attribute);
     }
 
     /**
@@ -241,16 +244,17 @@ public class DescriptorFactory {
      */
     public Descriptor termDescriptor(URI vocabularyUri) {
         final EntityDescriptor descriptor = assetDescriptor(vocabularyUri);
-        final EntityDescriptor externalParentDescriptor = new EntityDescriptor();
+        final EntityDescriptor fieldDesc = new EntityDescriptor();
         // Vocabulary field is inferred, so it cannot be in any specific context
-        externalParentDescriptor.addAttributeDescriptor(fieldSpec(Term.class, "vocabulary"),
+        fieldDesc.addAttributeDescriptor(fieldSpec(Term.class, "vocabulary"),
                 new FieldDescriptor((URI) null, fieldSpec(Term.class, "vocabulary")));
-        persistenceUtils.getCurrentWorkspaceVocabularyContexts().forEach(externalParentDescriptor::addContext);
-        persistenceUtils.getCanonicalContainerContexts().forEach(externalParentDescriptor::addContext);
+        descriptor.addAttributeDescriptor(fieldSpec(Term.class, "externalParentTerms"), fieldDesc);
+        descriptor.addAttributeDescriptor(fieldSpec(Term.class, "parentTerms"), fieldDesc);
+        descriptor.addAttributeDescriptor(fieldSpec(TermDto.class, "parentTerms"), fieldDesc);
+        descriptor.addAttributeDescriptor(fieldSpec(Term.class, "superTypes"), fieldDesc);
+        persistenceUtils.getCurrentWorkspaceVocabularyContexts().forEach(fieldDesc::addContext);
+        persistenceUtils.getCanonicalContainerContexts().forEach(fieldDesc::addContext);
         // Allow indefinite length of the ancestor chain
-        descriptor.addAttributeDescriptor(fieldSpec(Term.class, "superTypes"), descriptor);
-        descriptor.addAttributeDescriptor(fieldSpec(Term.class, "externalParentTerms"), externalParentDescriptor);
-        descriptor.addAttributeDescriptor(fieldSpec(Term.class, "parentTerms"), descriptor);
         final EntityDescriptor exactMatchTermsDescriptor = new EntityDescriptor();
         exactMatchTermsDescriptor.addAttributeDescriptor(fieldSpec(TermInfo.class, "vocabulary"),
                 new FieldDescriptor((URI) null, fieldSpec(TermInfo.class, "vocabulary")));
@@ -262,7 +266,8 @@ public class DescriptorFactory {
         descriptor.addAttributeDescriptor(fieldSpec(Term.class, "vocabulary"),
                 new FieldDescriptor((URI) null, fieldSpec(Term.class, "vocabulary")));
         final EntityDescriptor relatedDescriptor = assetDescriptor(vocabularyUri);
-        relatedDescriptor.addAttributeDescriptor(fieldSpec(TermInfo.class, "vocabulary"), new FieldDescriptor((URI) null, fieldSpec(TermInfo.class, "vocabulary")));
+        relatedDescriptor
+                .addAttributeDescriptor(fieldSpec(TermInfo.class, "vocabulary"), new FieldDescriptor((URI) null, fieldSpec(TermInfo.class, "vocabulary")));
         descriptor.addAttributeDescriptor(fieldSpec(Term.class, "related"), relatedDescriptor);
         descriptor.addAttributeContext(fieldSpec(Term.class, "relatedMatch"), null);
         return descriptor;

@@ -766,10 +766,10 @@ public class TermDao extends WorkspaceBasedAssetDao<Term> {
             "GRAPH ?g { " +
             "?term a ?type ." +
             "}" +
-            "?term ?broader ?parent ." +    // Let broader be outside of the graph to include inference
+            "?parent ?narrower ?term ." +    // Let broader be outside of the graph to include inference
             "FILTER (?g in (?graphs))" +
             "}", Term.class).setParameter("type", typeUri)
-            .setParameter("broader", URI.create(SKOS.BROADER))
+            .setParameter("narrower", URI.create(SKOS.NARROWER))
             .setParameter("parent", parent)
             .setParameter("graphs", graphs)
             .setDescriptor(descriptor);

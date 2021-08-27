@@ -173,7 +173,7 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
         try (final RepositoryConnection conn = repo.getConnection()) {
             conn.begin();
             final IRI narrower = vf.createIRI(SKOS.NARROWER);
-            for (Term parent : child.getParentTerms()) {
+            for (Term parent : child.getExternalParentTerms()) {
                 conn.add(vf.createStatement(vf.createIRI(parent.getUri().toString()), narrower,
                         vf.createIRI(child.getUri().toString()), vf.createIRI(context.toString())));
             }
@@ -453,7 +453,7 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
         final Term parent = Generator.generateTermWithId();
         persistTermIntoCanonicalContainer(parent);
         final EntityDescriptor termDescriptor = new EntityDescriptor(vocabulary.getUri());
-        termDescriptor.addAttributeContext(em.getMetamodel().entity(Term.class).getAttribute("parentTerms"), null);
+        termDescriptor.addAttributeContext(em.getMetamodel().entity(Term.class).getAttribute("externalParentTerms"), null);
         transactional(() -> {
             em.persist(term, termDescriptor);
             Generator.addTermInVocabularyRelationship(term, vocabulary.getUri(), em);
@@ -466,7 +466,7 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
         final Term result = em.find(Term.class, term.getUri());
         assertEquals(term, result);
         assertEquals(term, result);
-        assertThat(result.getParentTerms(), hasItem(parent));
+        assertThat(result.getExternalParentTerms(), hasItem(parent));
     }
 
     @Test
@@ -499,10 +499,10 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
 
         final Optional<Term> result = sut.find(term.getUri());
         assertTrue(result.isPresent());
-        assertNotNull(result.get().getParentTerms());
-        assertEquals(1, result.get().getParentTerms().size());
-        assertThat(result.get().getParentTerms(), hasItem(parentCopy));
-        assertEquals(parentCopy.getLabel(), result.get().getParentTerms().iterator().next().getLabel());
+        assertNotNull(result.get().getExternalParentTerms());
+        assertEquals(1, result.get().getExternalParentTerms().size());
+        assertThat(result.get().getExternalParentTerms(), hasItem(parentCopy));
+        assertEquals(parentCopy.getLabel(), result.get().getExternalParentTerms().iterator().next().getLabel());
     }
 
     private void connectWorkspaceVocabularyWithCanonicalOne(URI wsVocabulary, URI canonicalVocabulary) {
