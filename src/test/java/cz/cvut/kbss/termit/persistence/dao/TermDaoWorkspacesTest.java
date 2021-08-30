@@ -16,7 +16,6 @@ import cz.cvut.kbss.termit.model.Term;
 import cz.cvut.kbss.termit.model.Vocabulary;
 import cz.cvut.kbss.termit.persistence.DescriptorFactory;
 import cz.cvut.kbss.termit.persistence.dao.workspace.WorkspaceMetadataProvider;
-import cz.cvut.kbss.termit.util.ConfigParam;
 import cz.cvut.kbss.termit.util.Configuration;
 import cz.cvut.kbss.termit.util.Constants;
 import cz.cvut.kbss.termit.util.PageAndSearchSpecification;
@@ -61,10 +60,13 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
 
     private Vocabulary vocabulary;
 
+    private Map<URI,URI> glossaryToVocabulary = new HashMap<>();
+
     @BeforeEach
     void setUp() {
         this.vocabulary = Generator.generateVocabularyWithId();
         saveVocabulary(vocabulary);
+        glossaryToVocabulary.put(vocabulary.getGlossary().getUri(), vocabulary.getUri());
     }
 
     private void saveVocabulary(Vocabulary vocabulary) {
@@ -679,11 +681,24 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
             final EntityDescriptor termDescriptor = new EntityDescriptor(canonicalVocUri);
             em.persist(canonicalChild, termDescriptor);
             Generator.addTermInVocabularyRelationship(canonicalChild, canonicalVocUri, em);
+            insertNarrowerStatements(canonicalChild);
         });
 
         final List<TermDto> result = sut.findAllRoots(Constants.DEFAULT_PAGE_SPEC);
         assertEquals(1, result.size());
         assertThat(result.get(0).getSubTerms(), hasItem(new TermInfo(canonicalChild)));
+    }
+
+    /**
+     * Simulate the inverse of skos:broader and skos:narrower
+     *
+     * @param children Terms whose parents need skos:narrower relationships to them
+     */
+    private void insertNarrowerStatements(Term... children) {
+        Generator.insertNarrowerStatements(em, (glossaryUri) ->
+                descriptorFactory.termDescriptor(
+                        glossaryToVocabulary.get(glossaryUri)
+                ).getSingleContext().orElse(null), children);
     }
 
     @Test
@@ -698,6 +713,7 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
             final EntityDescriptor termDescriptor = new EntityDescriptor(canonicalVocUri);
             em.persist(canonicalChild, termDescriptor);
             Generator.addTermInVocabularyRelationship(canonicalChild, canonicalVocUri, em);
+            insertNarrowerStatements(canonicalChild);
         });
 
         final List<Term> result = sut.findAllSubTerms(canonical);

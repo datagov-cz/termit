@@ -558,12 +558,12 @@ public class TermDao extends WorkspaceBasedAssetDao<Term> {
             "?entity a ?type ;" +
             "?hasLabel ?label ." +
             "}" +
-            "?entity ?broader ?parent ; " + // Let broader be outside of the graph to allow including inferences
+            "?parent ?narrower ?entity ; " + // Let broader be outside of the graph to allow including inferences
             "?inVocabulary ?vocabulary ." +
             "FILTER (?g in (?graphs))" +
             "} ORDER BY ?entity")
             .setParameter("type", typeUri)
-            .setParameter("broader", URI.create(SKOS.BROADER))
+            .setParameter("narrower", URI.create(SKOS.NARROWER))
             .setParameter("parent", parent)
             .setParameter("hasLabel", LABEL_PROP)
             .setParameter("inVocabulary", URI.create(cz.cvut.kbss.termit.util.Vocabulary.s_p_je_pojmem_ze_slovniku))

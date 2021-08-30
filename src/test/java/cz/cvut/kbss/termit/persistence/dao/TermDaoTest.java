@@ -25,7 +25,6 @@ import cz.cvut.kbss.termit.persistence.DescriptorFactory;
 import cz.cvut.kbss.termit.util.Configuration;
 import cz.cvut.kbss.termit.persistence.dao.workspace.WorkspaceMetadataProvider;
 import cz.cvut.kbss.termit.util.Constants;
-import cz.cvut.kbss.termit.util.Utils;
 import org.eclipse.rdf4j.common.iteration.Iterations;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -219,25 +218,8 @@ class TermDaoTest extends BaseDaoTestRunner {
      * @param children Terms whose parents need skos:narrower relationships to them
      */
     private void insertNarrowerStatements(Term... children) {
-        final Repository repo = em.unwrap(Repository.class);
-        final ValueFactory vf = repo.getValueFactory();
-        try (final RepositoryConnection conn = repo.getConnection()) {
-            conn.begin();
-            final IRI narrower = vf.createIRI(SKOS.NARROWER);
-            for (Term t : children) {
-                final Collection<Term> parents = new ArrayList<>();
-                parents.addAll(Utils.emptyIfNull(t.getParentTerms()));
-                parents.addAll(Utils.emptyIfNull(t.getExternalParentTerms()));
-                for (Term parent : parents) {
-                    conn.add(vf.createStatement(vf.createIRI(parent.getUri().toString()), narrower,
-                            vf.createIRI(t.getUri().toString()),
-                            vf.createIRI(
-                                    descriptorFactory.termDescriptor(glossaryToVocabulary.get(parent.getGlossary()))
-                                            .getSingleContext().get().toString())));
-                }
-            }
-            conn.commit();
-        }
+        Generator.insertNarrowerStatements(em, (glossaryUri) ->
+                descriptorFactory.termDescriptor(glossaryToVocabulary.get(glossaryUri)).getSingleContext().get(), children);
     }
 
     @Test
@@ -843,7 +825,7 @@ class TermDaoTest extends BaseDaoTestRunner {
             insertNarrowerStatements(child);
         });
 
-        final List<TermDto> result = sut.findAllRoots(vocabulary, PageRequest.of(0, rootTerms.size() / 2), Collections.singleton(term.getUri()));
+        final List<TermDto> result = sut.findAllRoots(vocabulary, PageRequest.of(0, rootTerms.size() + 1), Collections.singleton(term.getUri()));
         final Optional<TermDto> toFind = result.stream().filter(dto -> term.getUri().equals(dto.getUri())).findFirst();
         assertTrue(toFind.isPresent());
         assertFalse(toFind.get().getSubTerms().isEmpty());
