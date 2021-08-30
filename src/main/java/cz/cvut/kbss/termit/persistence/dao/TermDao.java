@@ -558,12 +558,12 @@ public class TermDao extends WorkspaceBasedAssetDao<Term> {
             "?entity a ?type ;" +
             "?hasLabel ?label ." +
             "}" +
-            "?entity ?broader ?parent ; " + // Let broader be outside of the graph to allow including inferences
+            "?parent ?narrower ?entity ; " + // Let broader be outside of the graph to allow including inferences
             "?inVocabulary ?vocabulary ." +
             "FILTER (?g in (?graphs))" +
             "} ORDER BY ?entity")
             .setParameter("type", typeUri)
-            .setParameter("broader", URI.create(SKOS.BROADER))
+            .setParameter("narrower", URI.create(SKOS.NARROWER))
             .setParameter("parent", parent)
             .setParameter("hasLabel", LABEL_PROP)
             .setParameter("inVocabulary", URI.create(cz.cvut.kbss.termit.util.Vocabulary.s_p_je_pojmem_ze_slovniku))
@@ -631,19 +631,19 @@ public class TermDao extends WorkspaceBasedAssetDao<Term> {
             case "cs":
                 return
                         r(r(r(r(r(r(r(r(r(r(r(r(r(r("lcase(" + var + ")",
-                                "'á'", "'azz'"),
-                                "'č'", "'czz'"),
-                                "'ď'", "'dzz'"),
-                                "'é'", "'ezz'"),
-                                "'ě'", "'ezz'"),
-                                "'í'", "'izz'"),
-                                "'ň'", "'nzz'"),
-                                "'ó'", "'ozz'"),
-                                "'ř'", "'rzz'"),
-                                "'š'", "'szz'"),
-                                "'ť'", "'tzz'"),
-                                "'ú'", "'uzz'"),
-                                "'ý'", "'yzz'"),
+                                                                                                                                        "'á'", "'azz'"),
+                                                                                                                                "'č'", "'czz'"),
+                                                                                                                        "'ď'", "'dzz'"),
+                                                                                                                "'é'", "'ezz'"),
+                                                                                                        "'ě'", "'ezz'"),
+                                                                                                "'í'", "'izz'"),
+                                                                                        "'ň'", "'nzz'"),
+                                                                                "'ó'", "'ozz'"),
+                                                                        "'ř'", "'rzz'"),
+                                                                "'š'", "'szz'"),
+                                                        "'ť'", "'tzz'"),
+                                                "'ú'", "'uzz'"),
+                                        "'ý'", "'yzz'"),
                                 "'ž'", "'zzz'");
             default:
                 return "lcase(" + var + ")";
@@ -766,10 +766,10 @@ public class TermDao extends WorkspaceBasedAssetDao<Term> {
             "GRAPH ?g { " +
             "?term a ?type ." +
             "}" +
-            "?term ?broader ?parent ." +    // Let broader be outside of the graph to include inference
+            "?parent ?narrower ?term ." +    // Let broader be outside of the graph to include inference
             "FILTER (?g in (?graphs))" +
             "}", Term.class).setParameter("type", typeUri)
-            .setParameter("broader", URI.create(SKOS.BROADER))
+            .setParameter("narrower", URI.create(SKOS.NARROWER))
             .setParameter("parent", parent)
             .setParameter("graphs", graphs)
             .setDescriptor(descriptor);

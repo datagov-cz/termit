@@ -15,6 +15,7 @@ package cz.cvut.kbss.termit.environment;
 import cz.cvut.kbss.jopa.model.EntityManager;
 import cz.cvut.kbss.jopa.model.MultilingualString;
 import cz.cvut.kbss.jopa.vocabulary.RDFS;
+import cz.cvut.kbss.jopa.vocabulary.SKOS;
 import cz.cvut.kbss.termit.dto.TermInfo;
 import cz.cvut.kbss.termit.model.*;
 import cz.cvut.kbss.termit.model.assignment.Target;
@@ -28,6 +29,8 @@ import cz.cvut.kbss.termit.model.resource.File;
 import cz.cvut.kbss.termit.model.resource.Resource;
 import java.util.Arrays;
 import java.util.Date;
+
+import cz.cvut.kbss.termit.util.Utils;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -41,6 +44,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.*;
 import java.time.temporal.ChronoUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -411,6 +415,34 @@ public class Generator {
             conn.add(vf.createIRI(subject.getUri().toString()),
                     vf.createIRI(cz.cvut.kbss.termit.util.Vocabulary.s_p_pouziva_pojmy_ze_slovniku),
                     vf.createIRI(target.getUri().toString()));
+        }
+    }
+
+    /**
+     * Simulate the inverse of skos:broader and skos:narrower
+     *
+     * @param em entity manager
+     * @param glossaryToContext the RDF graph to insert statements into
+     * @param children Terms whose parents need skos:narrower relationships to them
+     */
+    public static void insertNarrowerStatements(EntityManager em, Function<URI, URI> glossaryToContext, Term... children) {
+        final Repository repo = em.unwrap(Repository.class);
+        final ValueFactory vf = repo.getValueFactory();
+        try (final RepositoryConnection conn = repo.getConnection()) {
+            conn.begin();
+            final IRI narrower = vf.createIRI(SKOS.NARROWER);
+            for (final Term t : children) {
+                final Collection<Term> parents = new ArrayList<>();
+                parents.addAll(Utils.emptyIfNull(t.getParentTerms()));
+                parents.addAll(Utils.emptyIfNull(t.getExternalParentTerms()));
+                for (final Term parent : parents) {
+                    final URI context = glossaryToContext.apply(parent.getGlossary());
+                    conn.add(vf.createStatement(vf.createIRI(parent.getUri().toString()), narrower,
+                            vf.createIRI(t.getUri().toString()),
+                            context != null ? vf.createIRI(context.toString()) : null ));
+                }
+            }
+            conn.commit();
         }
     }
 }
