@@ -1,8 +1,6 @@
 package cz.cvut.kbss.termit.dto;
 
-import cz.cvut.kbss.jopa.model.annotations.Id;
-import cz.cvut.kbss.jopa.model.annotations.OWLAnnotationProperty;
-import cz.cvut.kbss.jopa.model.annotations.OWLClass;
+import cz.cvut.kbss.jopa.model.annotations.*;
 import cz.cvut.kbss.jopa.vocabulary.DC;
 import cz.cvut.kbss.termit.util.Vocabulary;
 
@@ -21,6 +19,9 @@ public class ConfigurationDto implements Serializable {
     @OWLAnnotationProperty(iri = DC.Terms.LANGUAGE)
     private String language;
 
+    @OWLDataProperty(iri = Vocabulary.s_p_ma_maximalni_velikost_souboru)
+    private String maxFileUploadSize;
+
     public String getLanguage() {
         return language;
     }
@@ -35,5 +36,13 @@ public class ConfigurationDto implements Serializable {
 
     public void setId(URI id) {
         this.id = id;
+    }
+
+    public String getMaxFileUploadSize() {
+        return maxFileUploadSize;
+    }
+
+    public void setMaxFileUploadSize(String maxFileUploadSize) {
+        this.maxFileUploadSize = maxFileUploadSize;
     }
 }

@@ -271,3 +271,7 @@ termit-pojem:má-můj-poslední-komentář
 rdfs:subClassOf
         a rdf:Property ;
         rdfs:subPropertyOf  <http://www.w3.org/2004/02/skos/core#broader> .
+
+termit-pojem:má-maximální-velikost-souboru
+        a                   owl:DatatypeProperty , <https://slovník.gov.cz/základní/pojem/typ-vlastnosti> ;
+        rdfs:subPropertyOf  <https://slovník.gov.cz/základní/pojem/vlastnost> .

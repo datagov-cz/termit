@@ -8,11 +8,12 @@ CONSTRUCT {
     ?term a skos:Concept ;
         skos:inScheme ?glossary ;
         skos:prefLabel ?prefLabel ;
-        skos:definition ?definition ;
-        skos:altLabel ?altLabel ;
+        ?skosProperty ?skosPropertyValue ;
+        skos:exactMatch ?exactMatch ;
+        skos:broader ?broader ;
+        skos:broadMatch ?broadMatch ;
         skos:related ?related ;
-        dc:source ?source ;
-        skos:broader ?parent ;
+        skos:relatedMatch ?relatedMatch ;
         skos:topConceptOf ?topOf ;
         a ?type ;
         skos:broader ?superClass ;
@@ -23,24 +24,39 @@ CONSTRUCT {
         skos:inScheme ?glossary ;
         skos:prefLabel ?prefLabel .
     OPTIONAL {
-        ?term skos:definition ?definition .
+        ?term ?skosProperty ?skosPropertyValue .
+        FILTER( ?skosProperty in ( dc:source, skos:altLabel, skos:definition, skos:scopeNote, skos:changeNote, skos:editorialNote, skos:historyNote, skos:notation, skos:example ) )
     }
     OPTIONAL {
-        ?term skos:altLabel ?altLabel .
+        ?term skos:broader ?broader .
+        FILTER NOT EXISTS {
+            ?term skos:broader ?intermediate .
+            ?intermediate skos:broader ?broader .
+            FILTER (?broader != ?intermediate)
+        }
+        FILTER NOT EXISTS {
+            ?term skos:broadMatch ?broader .
+        }
+    }
+    OPTIONAL {
+        ?term skos:broadMatch ?broadMatch .
+        FILTER NOT EXISTS {
+            ?term skos:broadMatch ?intermediate2 .
+            ?intermediate2 skos:broadMatch ?broadMatch .
+            FILTER (?broadMatch != ?intermediate2)
+        }
     }
     OPTIONAL {
         ?term skos:related ?related .
-    }
-    OPTIONAL {
-        ?term dc:source ?source .
-    }
-    OPTIONAL {
-        ?term skos:broader ?parent .
         FILTER NOT EXISTS {
-            ?term skos:broader ?intermediate .
-            ?intermediate skos:broader ?parent .
-            FILTER (?parent != ?intermediate)
+            ?term skos:relatedMatch ?related .
         }
+    }
+    OPTIONAL {
+        ?term skos:relatedMatch ?relatedMatch .
+    }
+    OPTIONAL {
+        ?term skos:exactMatch ?exactMatch .
     }
     OPTIONAL {
     # This ensures only parent-less terms become top concepts of their glossaries
@@ -50,7 +66,7 @@ CONSTRUCT {
     OPTIONAL {
         ?term a ?type .
         FILTER (?type != skos:Concept)
-        FILTER(!STRSTARTS(STR(?type), "http://www.w3.org/2002/07/owl#"))
+        FILTER(!STRSTARTS(STR(?type), str(owl:)))
         FILTER NOT EXISTS {
             ?term a ?intermediateType .
             ?intermediateType rdfs:subClassOf ?type .
@@ -60,7 +76,7 @@ CONSTRUCT {
     OPTIONAL {
         ?term rdfs:subClassOf ?superClass .
         FILTER (!sameTerm(?term, ?superClass))
-        FILTER(!STRSTARTS(STR(?superClass), "http://www.w3.org/2002/07/owl#"))
+        FILTER(!STRSTARTS(STR(?superClass), str(owl:)))
         FILTER NOT EXISTS {
             ?term rdfs:subClassOf ?intermediateSuperClass .
             ?intermediateSuperClass rdfs:subClassOf ?superClass .

@@ -91,6 +91,7 @@ public class VocabularyController extends BaseController {
      * Allows to import a vocabulary (or its  glossary) from the specified file.
      *
      * @param file File containing data to import
+     * @param rename true if the IRIs should be renamed
      */
     @PostMapping("/import")
     @PreAuthorize("hasRole('" + SecurityConstants.ROLE_FULL_USER + "')")
@@ -161,6 +162,37 @@ public class VocabularyController extends BaseController {
         verifyRequestAndEntityIdentifier(update, vocabularyUri);
         vocabularyService.update(update);
         LOG.debug("Vocabulary {} updated.", update);
+    }
+
+    /**
+     * Runs text analysis on definitions of all terms in vocabulary.
+     * <p>
+     * This is a legacy endpoint intended mainly for internal use/testing, since the analysis is executed automatically
+     * when specific conditions are fulfilled.
+     */
+    @PutMapping(value = "/{vocabularyIdFragment}/terms/text-analysis")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasRole('" + SecurityConstants.ROLE_FULL_USER + "')")
+    public void runTextAnalysisOnAllTerms(@PathVariable String vocabularyIdFragment,
+                                          @RequestParam(name = QueryParams.NAMESPACE,
+                                                        required = false) Optional<String> namespace) {
+        vocabularyService.runTextAnalysisOnAllTerms(getById(vocabularyIdFragment, namespace));
+    }
+
+    /**
+     * Runs text analysis on definitions of all terms in all vocabularies.
+     * <p>
+     * The text analysis invocation is asynchronous, so this method returns immediately after invoking the text analysis
+     * with status {@link HttpStatus#ACCEPTED}.
+     * <p>
+     * This is a legacy endpoint intended mainly for internal use/testing, since the analysis is executed automatically
+     * when specific conditions are fulfilled.
+     */
+    @GetMapping(value = "/text-analysis")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasRole('" + SecurityConstants.ROLE_FULL_USER + "')")
+    public void runTextAnalysisOnAllVocabularies() {
+        vocabularyService.runTextAnalysisOnAllVocabularies();
     }
 
     /**

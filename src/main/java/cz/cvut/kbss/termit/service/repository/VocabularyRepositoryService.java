@@ -2,7 +2,10 @@ package cz.cvut.kbss.termit.service.repository;
 
 import cz.cvut.kbss.termit.exception.VocabularyImportException;
 import cz.cvut.kbss.termit.exception.VocabularyRemovalException;
-import cz.cvut.kbss.termit.model.*;
+import cz.cvut.kbss.termit.model.Glossary;
+import cz.cvut.kbss.termit.model.Model;
+import cz.cvut.kbss.termit.model.Term;
+import cz.cvut.kbss.termit.model.Vocabulary;
 import cz.cvut.kbss.termit.model.changetracking.AbstractChangeRecord;
 import cz.cvut.kbss.termit.model.validation.ValidationResult;
 import cz.cvut.kbss.termit.persistence.dao.AssetDao;
@@ -13,6 +16,11 @@ import cz.cvut.kbss.termit.service.business.TermService;
 import cz.cvut.kbss.termit.service.business.VocabularyService;
 import cz.cvut.kbss.termit.util.Configuration;
 import cz.cvut.kbss.termit.service.business.WorkspaceService;
+import cz.cvut.kbss.termit.util.Utils;
+import org.apache.tika.Tika;
+import org.apache.tika.metadata.Metadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
@@ -20,6 +28,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.NonNull;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,6 +43,8 @@ import java.util.stream.Collectors;
 @CacheConfig(cacheNames = "vocabularies")
 @Service
 public class VocabularyRepositoryService extends BaseAssetRepositoryService<Vocabulary> implements VocabularyService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(VocabularyRepositoryService.class);
 
     private final IdentifierResolver idResolver;
 
@@ -52,7 +63,8 @@ public class VocabularyRepositoryService extends BaseAssetRepositoryService<Voca
     private final ApplicationContext context;
 
     @Autowired
-    public VocabularyRepositoryService(ApplicationContext context, VocabularyDao vocabularyDao, IdentifierResolver idResolver,
+    public VocabularyRepositoryService(ApplicationContext context, VocabularyDao vocabularyDao,
+                                       IdentifierResolver idResolver,
                                        Validator validator, ChangeRecordService changeRecordService,
                                        @Lazy TermService termService,
                                        @Lazy ResourceRepositoryService resourceService,
@@ -99,7 +111,7 @@ public class VocabularyRepositoryService extends BaseAssetRepositoryService<Voca
         super.prePersist(instance);
         if (instance.getUri() == null) {
             instance.setUri(idResolver.generateIdentifier(config.getVocabulary(),
-                instance.getLabel()));
+                    instance.getLabel()));
         }
         verifyIdentifierUnique(instance);
         if (instance.getGlossary() == null) {
@@ -143,13 +155,16 @@ public class VocabularyRepositoryService extends BaseAssetRepositoryService<Voca
     public Vocabulary importVocabulary(boolean rename, URI vocabularyIri, MultipartFile file) {
         Objects.requireNonNull(file);
         try {
-            final Vocabulary vocabulary = getSKOSImporter().importVocabulary(rename,
+            Metadata metadata = new Metadata();
+            metadata.add(Metadata.RESOURCE_NAME_KEY, file.getName());
+            metadata.add(Metadata.CONTENT_TYPE, file.getContentType());
+            String contentType = new Tika().detect(file.getInputStream(), metadata);
+            return getSKOSImporter().importVocabulary(rename,
                     vocabularyIri,
-                    file.getContentType(),
-                    (v) -> this.persist(v),
+                    contentType,
+                    this::persist,
                     file.getInputStream()
             );
-            return vocabulary;
         } catch (VocabularyImportException e) {
             throw e;
         } catch (Exception e) {
@@ -183,6 +198,27 @@ public class VocabularyRepositoryService extends BaseAssetRepositoryService<Voca
         }
 
         super.remove(instance);
+    }
+
+    @Override
+    @Async
+    public void runTextAnalysisOnAllTerms(Vocabulary vocabulary) {
+        LOG.debug("Analyzing definitions of all terms in vocabulary {} and vocabularies it imports.", vocabulary);
+        List<Term> allTerms = termService.findAll(vocabulary);
+        getTransitivelyImportedVocabularies(vocabulary).forEach(
+                importedVocabulary -> allTerms.addAll(termService.findAll(getRequiredReference(importedVocabulary))));
+        allTerms.stream().filter(t -> t.getDefinition() != null)
+                .forEach(t -> termService.analyzeTermDefinition(t, vocabulary.getUri()));
+    }
+
+    @Override
+    @Async
+    public void runTextAnalysisOnAllVocabularies() {
+        vocabularyDao.findAll().forEach(v -> {
+            List<Term> terms = termService.findAll(v);
+            terms.stream().filter(t -> t.getDefinition() != null)
+                 .forEach(t -> termService.analyzeTermDefinition(t, v.getUri()));
+        });
     }
 
     @Transactional

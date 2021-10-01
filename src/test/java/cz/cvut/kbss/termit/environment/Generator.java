@@ -445,4 +445,30 @@ public class Generator {
             conn.commit();
         }
     }
+
+    /**
+     * Generates a list of five comments for the given term.
+     *
+     * @param term term to generate comments for, or null if the comments should not be assigned to any term.
+     * @return a list of comments
+     */
+    public static List<Comment> generateComments(Term term) {
+        return IntStream.range(0, 5).mapToObj(i -> generateComment(term)).collect(Collectors.toList());
+    }
+
+    /**
+     * Generates five random comments for the given term.
+     *
+     * @param term the term to generate comments for, or null if no term shall be assigned to the comment
+     * @return comment
+     */
+    public static Comment generateComment(Term term) {
+        final Comment c = new Comment();
+        c.setContent("Comment " + Generator.randomInt());
+        if (term != null) {
+            c.setAsset(term.getUri());
+            c.setCreated(new Date());
+        }
+        return c;
+    }
 }

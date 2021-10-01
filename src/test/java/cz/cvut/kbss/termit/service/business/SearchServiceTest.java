@@ -1,35 +1,31 @@
 package cz.cvut.kbss.termit.service.business;
 
-import cz.cvut.kbss.termit.dto.workspace.VocabularyInfo;
-import cz.cvut.kbss.termit.dto.workspace.WorkspaceMetadata;
 import cz.cvut.kbss.termit.environment.Generator;
-import cz.cvut.kbss.termit.environment.WorkspaceGenerator;
 import cz.cvut.kbss.termit.persistence.dao.SearchDao;
-import cz.cvut.kbss.termit.persistence.dao.workspace.WorkspaceMetadataProvider;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import cz.cvut.kbss.termit.dto.workspace.VocabularyInfo;
+import cz.cvut.kbss.termit.dto.workspace.WorkspaceMetadata;
+import cz.cvut.kbss.termit.environment.WorkspaceGenerator;
+import cz.cvut.kbss.termit.persistence.dao.workspace.WorkspaceMetadataProvider;
 
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class SearchServiceTest {
 
     @Mock
     private SearchDao searchDao;
 
-    @Mock
-    private WorkspaceMetadataProvider wsMetadataCache;
-
     @InjectMocks
     private SearchService sut;
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.initMocks(this);
-    }
+    @Mock
+    private WorkspaceMetadataProvider wsMetadataCache;
 
     @Test
     void fullTextSearchExtractsContextsForSearchingFromCurrentWorkspace() {

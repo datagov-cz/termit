@@ -1,5 +1,6 @@
 package cz.cvut.kbss.termit.service.business;
 
+import cz.cvut.kbss.jopa.model.MultilingualString;
 import cz.cvut.kbss.termit.dto.TermInfo;
 import cz.cvut.kbss.termit.dto.assignment.TermAssignments;
 import cz.cvut.kbss.termit.dto.listing.TermDto;
@@ -12,6 +13,7 @@ import cz.cvut.kbss.termit.model.assignment.FileOccurrenceTarget;
 import cz.cvut.kbss.termit.model.assignment.TermDefinitionSource;
 import cz.cvut.kbss.termit.model.comment.Comment;
 import cz.cvut.kbss.termit.model.util.TermStatus;
+import cz.cvut.kbss.termit.service.document.TextAnalysisService;
 import cz.cvut.kbss.termit.service.comment.CommentService;
 import cz.cvut.kbss.termit.service.export.VocabularyExporters;
 import cz.cvut.kbss.termit.service.export.util.TypeAwareByteArrayResource;
@@ -24,6 +26,7 @@ import cz.cvut.kbss.termit.util.Configuration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -51,6 +54,9 @@ class TermServiceTest {
 
     @Mock
     private TermRepositoryService termRepositoryService;
+
+    @Mock
+    private TextAnalysisService textAnalysisService;
 
     @Mock
     private TermOccurrenceService termOccurrenceService;
@@ -153,6 +159,7 @@ class TermServiceTest {
     @Test
     void updateUsesRepositoryServiceToUpdateTerm() {
         final Term term = generateTermWithId();
+        when(termRepositoryService.findRequired(term.getUri())).thenReturn(term);
         sut.update(term);
         verify(termRepositoryService).update(term);
     }
@@ -220,6 +227,42 @@ class TermServiceTest {
         final Term toRemove = generateTermWithId();
         sut.remove(toRemove);
         verify(termRepositoryService).remove(toRemove);
+    }
+
+    @Test
+    void runTextAnalysisInvokesTextAnalysisOnSpecifiedTerm() {
+        final Term toAnalyze = generateTermWithId();
+        sut.analyzeTermDefinition(toAnalyze, vocabulary.getUri());
+        verify(textAnalysisService).analyzeTermDefinition(toAnalyze, vocabulary.getUri());
+    }
+
+    @Test
+    void persistChildInvokesTextAnalysisOnPersistedChildTerm() {
+        final Term parent = generateTermWithId();
+        parent.setVocabulary(vocabulary.getUri());
+        final Term childToPersist = generateTermWithId();
+        sut.persistChild(childToPersist, parent);
+        verify(textAnalysisService).analyzeTermDefinition(childToPersist, parent.getVocabulary());
+    }
+
+    @Test
+    void persistRootInvokesTextAnalysisOnPersistedRootTerm() {
+        final Term toPersist = generateTermWithId();
+        sut.persistRoot(toPersist, vocabulary);
+        verify(textAnalysisService).analyzeTermDefinition(toPersist, vocabulary.getUri());
+    }
+
+    @Test
+    void updateInvokesTextAnalysisOnUpdatedTerm() {
+        final Term original = generateTermWithId();
+        final Term toUpdate = new Term();
+        toUpdate.setUri(original.getUri());
+        final String newDefinition = "This term has acquired a new definition";
+        toUpdate.setVocabulary(vocabulary.getUri());
+        when(termRepositoryService.findRequired(toUpdate.getUri())).thenReturn(original);
+        toUpdate.setDefinition(MultilingualString.create(newDefinition, Environment.LANGUAGE));
+        sut.update(toUpdate);
+        verify(textAnalysisService).analyzeTermDefinition(toUpdate, toUpdate.getVocabulary());
     }
 
     @Test
@@ -360,4 +403,45 @@ class TermServiceTest {
         verify(vocabularyService).getTermCount(voc);
     }
 
+
+    @Test
+    void persistRootInvokesTextAnalysisOnAllTermsInTargetVocabulary() {
+        final Term term = generateTermWithId();
+
+        sut.persistRoot(term, vocabulary);
+        final InOrder inOrder = inOrder(termRepositoryService, vocabularyService);
+        inOrder.verify(termRepositoryService).addRootTermToVocabulary(term, vocabulary);
+        inOrder.verify(vocabularyService).runTextAnalysisOnAllTerms(vocabulary);
+    }
+
+    @Test
+    void persistChildInvokesTextAnalysisOnAllTermsInParentTermVocabulary() {
+        final Term parent = generateTermWithId();
+        parent.setVocabulary(vocabulary.getUri());
+        final Term childToPersist = generateTermWithId();
+        when(vocabularyService.getRequiredReference(vocabulary.getUri())).thenReturn(vocabulary);
+
+        sut.persistChild(childToPersist, parent);
+        final InOrder inOrder = inOrder(termRepositoryService, vocabularyService);
+        inOrder.verify(termRepositoryService).addChildTerm(childToPersist, parent);
+        inOrder.verify(vocabularyService).runTextAnalysisOnAllTerms(vocabulary);
+    }
+
+    @Test
+    void updateInvokesTextAnalysisOnAllTermsInTermsVocabularyWhenLabelHasChanged() {
+        final Term original = generateTermWithId();
+        original.setVocabulary(vocabulary.getUri());
+        final Term update = new Term();
+        update.setUri(original.getUri());
+        update.setLabel(new MultilingualString(original.getLabel().getValue()));
+        update.setDefinition(new MultilingualString(original.getDefinition().getValue()));
+        update.setDescription(new MultilingualString(original.getDescription().getValue()));
+        update.setVocabulary(vocabulary.getUri());
+        when(termRepositoryService.findRequired(original.getUri())).thenReturn(original);
+        when(vocabularyService.getRequiredReference(vocabulary.getUri())).thenReturn(vocabulary);
+        update.getLabel().set(Environment.LANGUAGE, "updatedLabel");
+
+        sut.update(update);
+        verify(vocabularyService).runTextAnalysisOnAllTerms(vocabulary);
+    }
 }
