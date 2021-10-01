@@ -5,9 +5,11 @@ import cz.cvut.kbss.termit.model.Term;
 import cz.cvut.kbss.termit.model.Vocabulary;
 import cz.cvut.kbss.termit.persistence.dao.VocabularyDao;
 import cz.cvut.kbss.termit.service.business.TermService;
+import cz.cvut.kbss.termit.service.business.WorkspaceService;
 import cz.cvut.kbss.termit.util.Configuration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,6 +37,9 @@ class VocabularyRepositoryServiceTextAnalysisTest {
     @Mock
     private VocabularyDao vocabularyDao;
 
+    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+    private WorkspaceService workspaceService;
+
     @Test
     void runTextAnalysisOnAllTermsInvokesTextAnalysisOnAllTermsInVocabulary() {
         final Vocabulary vocabulary = Generator.generateVocabularyWithId();
@@ -42,7 +47,7 @@ class VocabularyRepositoryServiceTextAnalysisTest {
         final Term termTwo = Generator.generateTermWithId();
         List<Term> terms = Arrays.asList(termOne, termTwo);
         when(termService.findAll(vocabulary)).thenReturn(terms);
-        when(vocabularyDao.getTransitivelyImportedVocabularies(vocabulary)).thenReturn(Collections.emptyList());
+        when(workspaceService.getCurrentWorkspaceWithMetadata().getVocabularies()).thenReturn(Collections.singleton(vocabulary.getUri()));
         sut.runTextAnalysisOnAllTerms(vocabulary);
         verify(termService).analyzeTermDefinition(termOne, vocabulary.getUri());
         verify(termService).analyzeTermDefinition(termTwo, vocabulary.getUri());

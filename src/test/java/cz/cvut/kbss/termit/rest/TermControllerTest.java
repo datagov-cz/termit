@@ -243,25 +243,6 @@ class TermControllerTest extends BaseControllerTestRunner {
     }
 
     @Test
-    void getAllReturnsAllTermsFromVocabularyChainWhenIncludeImportedIsSpecified() throws Exception {
-        when(idResolverMock.resolveIdentifier(Environment.BASE_URI, VOCABULARY_NAME))
-                .thenReturn(URI.create(VOCABULARY_URI));
-        final List<TermDto> terms = termsToDtos(Generator.generateTermsWithIds(5));
-        when(termServiceMock.findVocabularyRequired(vocabulary.getUri())).thenReturn(vocabulary);
-        when(termServiceMock.findAllIncludingImported(eq(vocabulary))).thenReturn(terms);
-
-        final MvcResult mvcResult = mockMvc.perform(
-                                                   get(PATH + VOCABULARY_NAME + "/terms")
-                                                           .param(QueryParams.NAMESPACE, Environment.BASE_URI)
-                                                           .param("includeImported", Boolean.TRUE.toString()))
-                                           .andExpect(status().isOk()).andReturn();
-        final List<TermDto> result = readValue(mvcResult, new TypeReference<List<TermDto>>() {
-        });
-        assertEquals(terms, result);
-        verify(termServiceMock).findAllIncludingImported(vocabulary);
-    }
-
-    @Test
     void getAllUsesSearchStringToFindMatchingTerms() throws Exception {
         when(idResolverMock.resolveIdentifier(Environment.BASE_URI, VOCABULARY_NAME))
             .thenReturn(URI.create(VOCABULARY_URI));
@@ -688,32 +669,6 @@ class TermControllerTest extends BaseControllerTestRunner {
         verify(idResolverMock).resolveIdentifier(NAMESPACE, TERM_NAME);
         verify(termServiceMock).getRequiredReference(termUri);
         verify(termServiceMock).getAssignmentInfo(term);
-    }
-
-    @Test
-    void getAllRootsWithPageSpecAndIncludeImportsGetsRootTermsIncludingImportedTermsFromService() throws Exception {
-        when(idResolverMock.resolveIdentifier(config.getNamespace().getVocabulary(), VOCABULARY_NAME))
-                .thenReturn(URI.create(VOCABULARY_URI));
-        when(termServiceMock.findVocabularyRequired(vocabulary.getUri())).thenReturn(vocabulary);
-
-        mockMvc.perform(
-                       get(PATH + VOCABULARY_NAME + "/terms/roots").param("includeImported", Boolean.TRUE.toString()))
-               .andExpect(status().isOk());
-        verify(termServiceMock).findAllRootsIncludingImported(vocabulary, DEFAULT_PAGE_SPEC, Collections.emptyList());
-    }
-
-    @Test
-    void getAllWithSearchStringAndIncludeImportsGetsMatchingTermsIncludingImportedTermsFromService() throws Exception {
-        when(idResolverMock.resolveIdentifier(config.getNamespace().getVocabulary(), VOCABULARY_NAME))
-                .thenReturn(URI.create(VOCABULARY_URI));
-        when(termServiceMock.findVocabularyRequired(vocabulary.getUri())).thenReturn(vocabulary);
-        final String searchString = "test";
-        mockMvc.perform(
-                       get(PATH + VOCABULARY_NAME + "/terms")
-                               .param("includeImported", Boolean.TRUE.toString())
-                               .param("searchString", searchString))
-               .andExpect(status().isOk());
-        verify(termServiceMock).findAllIncludingImported(searchString, vocabulary);
     }
 
     @Test

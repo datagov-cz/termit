@@ -19,6 +19,7 @@ package cz.cvut.kbss.termit.service.business;
 
 import cz.cvut.kbss.jopa.vocabulary.SKOS;
 import cz.cvut.kbss.termit.dto.FullTextSearchResult;
+import cz.cvut.kbss.termit.dto.workspace.VocabularyInfo;
 import cz.cvut.kbss.termit.persistence.dao.SearchDao;
 import cz.cvut.kbss.termit.persistence.dao.workspace.WorkspaceMetadataProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,11 +64,12 @@ public class SearchService {
      * @return Matching terms
      */
     public List<FullTextSearchResult> fullTextSearchOfTerms(String searchString, Set<URI> vocabularies) {
-        Stream<FullTextSearchResult> result = searchDao.fullTextSearch(searchString).stream();
+        Set<URI> contexts = workspaceMetadataProvider.getCurrentWorkspaceMetadata()
+                                                     .getVocabularies().values().stream().filter(
+                vocabularyInfo -> vocabularies.contains(vocabularyInfo.getUri())
+        ).map(VocabularyInfo::getContext).collect(Collectors.toSet());
+        Stream<FullTextSearchResult> result = searchDao.fullTextSearch(searchString, contexts).stream();
         result = result.filter(r -> r.getTypes().contains(SKOS.CONCEPT));
-        if (vocabularies != null) {
-            result = result.filter(r -> vocabularies.contains(r.getVocabulary()));
-        }
         return result.collect(Collectors.toList());
     }
 }

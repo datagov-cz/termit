@@ -105,11 +105,9 @@ class AnnotationGeneratorTest extends BaseServiceTestRunner {
         termTwo.setLabel(MultilingualString
                 .create("Územní plán hlavního města Prahy", cz.cvut.kbss.termit.environment.Environment.LANGUAGE));
         final User author = Generator.generateUserWithId();
-        this.vocabulary = new cz.cvut.kbss.termit.model.Vocabulary();
+        this.vocabulary = Generator.generateVocabularyWithId();
         vocabulary.setLabel("Test Vocabulary");
-        vocabulary.setGlossary(new Glossary());
-        vocabulary.setModel(new Model());
-        vocabulary.setUri(Generator.generateUri());
+        vocabulary.getGlossary().setUri(Generator.generateUri());
         this.document = new cz.cvut.kbss.termit.model.resource.Document();
         document.setLabel("metropolitan-plan");
         document.setUri(Generator.generateUri());
@@ -117,6 +115,11 @@ class AnnotationGeneratorTest extends BaseServiceTestRunner {
         vocabulary.setDocument(document);
         vocabulary.getGlossary().addRootTerm(term);
         vocabulary.getGlossary().addRootTerm(termTwo);
+        term.setVocabulary(vocabulary.getUri());
+        term.setGlossary(vocabulary.getGlossary().getUri());
+        termTwo.setVocabulary(vocabulary.getUri());
+        termTwo
+                .setGlossary(vocabulary.getGlossary().getUri());
         this.vocabDescriptor = descriptorFactory.vocabularyDescriptor(vocabulary);
         this.file = new File();
         file.setUri(Generator.generateUri());

@@ -205,8 +205,12 @@ public class VocabularyRepositoryService extends BaseAssetRepositoryService<Voca
     public void runTextAnalysisOnAllTerms(Vocabulary vocabulary) {
         LOG.debug("Analyzing definitions of all terms in vocabulary {} and vocabularies it imports.", vocabulary);
         List<Term> allTerms = termService.findAll(vocabulary);
-        getTransitivelyImportedVocabularies(vocabulary).forEach(
-                importedVocabulary -> allTerms.addAll(termService.findAll(getRequiredReference(importedVocabulary))));
+        workspaceService.getCurrentWorkspaceWithMetadata().getVocabularies()
+                .stream().filter(
+                        vocabularyUri -> !Objects.equals(vocabularyUri, vocabulary.getUri()))
+                        .forEach(
+            importedVocabulary -> allTerms.addAll(termService.findAll(getRequiredReference(importedVocabulary)))
+        );
         allTerms.stream().filter(t -> t.getDefinition() != null)
                 .forEach(t -> termService.analyzeTermDefinition(t, vocabulary.getUri()));
     }

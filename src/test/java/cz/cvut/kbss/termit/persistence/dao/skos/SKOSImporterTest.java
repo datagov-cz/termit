@@ -1,6 +1,7 @@
 package cz.cvut.kbss.termit.persistence.dao.skos;
 
 import cz.cvut.kbss.jopa.model.EntityManager;
+import cz.cvut.kbss.jopa.model.descriptors.EntityDescriptor;
 import cz.cvut.kbss.termit.environment.Environment;
 import cz.cvut.kbss.termit.environment.Generator;
 import cz.cvut.kbss.termit.exception.UnsupportedImportMediaTypeException;
@@ -29,8 +30,7 @@ import org.springframework.context.ApplicationContext;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -67,7 +67,7 @@ class SKOSImporterTest extends BaseDaoTestRunner {
     void setUp() {
         final User author = Generator.generateUserWithId();
         Environment.setCurrentUser(author);
-        transactional(() -> em.persist(author));
+        transactional(() -> em.persist(author, new EntityDescriptor()));
         transactional(() -> {
             final cz.cvut.kbss.termit.model.Vocabulary v = generateVocabulary();
             v.setUri(VOCABULARY_IRI);
@@ -154,13 +154,6 @@ class SKOSImporterTest extends BaseDaoTestRunner {
 
     @Test
     void importInsertsImportedDataIntoContextBasedOnOntologyIdentifier() {
-        final AtomicInteger existingStatementCountInDefault = new AtomicInteger(0);
-        transactional(() -> {
-            final Repository repo = em.unwrap(Repository.class);
-            try (final RepositoryConnection conn = repo.getConnection()) {
-                existingStatementCountInDefault.set(Iterations.asList(conn.getStatements(null, null, null, false, (Resource) null)).size());
-            }
-        });
         transactional(() -> {
             final SKOSImporter sut = context.getBean(SKOSImporter.class);
             sut.importVocabulary(true, VOCABULARY_IRI, Constants.Turtle.MEDIA_TYPE, persister, Environment.loadFile("data/test-glossary.ttl"));
@@ -173,9 +166,10 @@ class SKOSImporterTest extends BaseDaoTestRunner {
                 final Optional<Resource> ctx = contexts.stream().filter(r -> r.stringValue().contains(VOCABULARY_IRI.toString()))
                     .findFirst();
                 assertTrue(ctx.isPresent());
-                final List<Statement> inAll = Iterations.asList(conn.getStatements(null, null, null, false));
-                final List<Statement> inCtx = Iterations.asList(conn.getStatements(null, null, null, false, ctx.get()));
-                assertEquals(inAll.size() - existingStatementCountInDefault.get(), inCtx.size());
+                final Set<Statement> inCtx = new HashSet<>(Iterations.asList(conn.getStatements(null, null, null, false, ctx.get())));
+                assertEquals(26
+                        + 1 // hasTopConcept
+                        , inCtx.size());
             }
         });
     }

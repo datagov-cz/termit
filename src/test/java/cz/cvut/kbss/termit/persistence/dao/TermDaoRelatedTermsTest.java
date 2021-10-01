@@ -221,6 +221,7 @@ public class TermDaoRelatedTermsTest extends BaseDaoTestRunner {
     @Test
     void inferredInverseRelatedDoesNotContainRelatedMatch() {
         final Term term = Generator.generateTermWithId(vocabulary.getUri());
+        term.setGlossary(Generator.generateUri());
         final List<Term> relatedMatch = Arrays.asList(Generator.generateTermWithId(Generator.generateUri()), Generator
                 .generateTermWithId(Generator.generateUri()));
         transactional(() -> {
