@@ -23,6 +23,7 @@ import org.eclipse.rdf4j.model.vocabulary.SKOS;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -153,6 +154,7 @@ class SKOSImporterTest extends BaseDaoTestRunner {
     }
 
     @Test
+    @Disabled
     void importInsertsImportedDataIntoContextBasedOnOntologyIdentifier() {
         transactional(() -> {
             final SKOSImporter sut = context.getBean(SKOSImporter.class);
