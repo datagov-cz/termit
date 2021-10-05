@@ -876,14 +876,14 @@ public class TermDaoWorkspacesTest extends BaseDaoTestRunner {
             Generator.addTermInVocabularyRelationship(term, vocabulary.getUri(), em);
         });
 
-        term.setSuperTypes(Collections.singleton(new TermInfo(superType)));
+        term.setSuperTypes(Collections.singleton(superType));
         // This is normally inferred
         term.setVocabulary(vocabulary.getUri());
         transactional(() -> sut.update(term));
         final Term result = em.find(Term.class, term.getUri());
         assertEquals(term, result);
         assertEquals(term, result);
-        assertThat(result.getSuperTypes(), hasItem(new TermInfo(superType)));
+        assertThat(result.getSuperTypes(), hasItem(superType));
     }
 
     @Test

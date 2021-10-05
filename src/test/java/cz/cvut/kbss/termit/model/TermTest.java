@@ -346,7 +346,7 @@ class TermTest {
         sut.setVocabulary(vocabularyUri);
         final Term parent = Generator.generateTermWithId();
         parent.setVocabulary(vocabularyUri);
-        sut.setSuperTypes(Collections.singleton(new TermInfo(parent)));
+        sut.setSuperTypes(Collections.singleton(parent));
 
         assertTrue(sut.hasParentInSameVocabulary());
     }

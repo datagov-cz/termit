@@ -79,7 +79,7 @@ public class Term extends AbstractTerm implements HasTypes {
     private Set<Term> externalParentTerms;
 
     @OWLObjectProperty(iri = RDFS.SUB_CLASS_OF, fetch = FetchType.EAGER)
-    private Set<TermInfo> superTypes;
+    private Set<Term> superTypes;
 
     @OWLObjectProperty(iri = SKOS.RELATED, fetch = FetchType.EAGER)
     private Set<TermInfo> related;
@@ -204,11 +204,11 @@ public class Term extends AbstractTerm implements HasTypes {
         }
     }
 
-    public Set<TermInfo> getSuperTypes() {
+    public Set<Term> getSuperTypes() {
         return superTypes;
     }
 
-    public void setSuperTypes(Set<TermInfo> superTypes) {
+    public void setSuperTypes(Set<Term> superTypes) {
         this.superTypes = superTypes;
     }
 
