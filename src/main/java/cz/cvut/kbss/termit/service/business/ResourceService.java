@@ -300,7 +300,10 @@ public class ResourceService
                     includeImportedVocabularies(Collections.singleton(file.getDocument().getVocabulary())));
         } else {
             final Set<URI> vocabularyContexts = vocabularies
-                    .stream().map(persistenceUtils::resolveVocabularyContext)
+                    .stream().map( vocabularyUri -> {
+                        final URI vocabularyContextUri = persistenceUtils.resolveVocabularyContext(vocabularyUri);
+                        return (vocabularyContextUri != null ? vocabularyContextUri : vocabularyUri);
+                    })
                     .collect(Collectors.toSet());
             textAnalysisService.analyzeFile(file, vocabularyContexts);
         }
