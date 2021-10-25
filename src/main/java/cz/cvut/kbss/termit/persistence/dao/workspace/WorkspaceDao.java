@@ -2,7 +2,6 @@ package cz.cvut.kbss.termit.persistence.dao.workspace;
 
 import cz.cvut.kbss.jopa.model.EntityManager;
 import cz.cvut.kbss.termit.dto.workspace.VocabularyInfo;
-import cz.cvut.kbss.termit.model.UserAccount;
 import cz.cvut.kbss.termit.model.Workspace;
 import cz.cvut.kbss.termit.util.Vocabulary;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,16 +61,5 @@ public class WorkspaceDao {
                  .setParameter("hasChangeTrackingCtx", URI.create(Vocabulary.s_p_ma_kontext_sledovani_zmen))
                  .setParameter("changeTrackingCtx", URI.create(Vocabulary.s_c_kontext_sledovani_zmen))
                  .setParameter("vocabulary", URI.create(Vocabulary.s_c_slovnik)).getResultList();
-    }
-
-    /**
-     * Finds the specified user's current workspace.
-     *
-     * @param user User for which workspace should be retrieved
-     * @return Current workspace of the specified user (if it is set)
-     */
-    public Optional<Workspace> findCurrentForUser(UserAccount user) {
-        // TODO
-        return Optional.empty();
     }
 }

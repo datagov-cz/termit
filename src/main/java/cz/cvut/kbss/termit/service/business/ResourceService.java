@@ -29,6 +29,7 @@ import cz.cvut.kbss.termit.model.changetracking.AbstractChangeRecord;
 import cz.cvut.kbss.termit.model.resource.Document;
 import cz.cvut.kbss.termit.model.resource.File;
 import cz.cvut.kbss.termit.model.resource.Resource;
+import cz.cvut.kbss.termit.persistence.PersistenceUtils;
 import cz.cvut.kbss.termit.service.changetracking.ChangeRecordProvider;
 import cz.cvut.kbss.termit.service.document.DocumentManager;
 import cz.cvut.kbss.termit.service.document.TextAnalysisService;
@@ -47,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Interface of business logic concerning resources.
@@ -68,17 +70,20 @@ public class ResourceService
 
     private final ChangeRecordService changeRecordService;
 
+    private final PersistenceUtils persistenceUtils;
+
     private ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public ResourceService(ResourceRepositoryService repositoryService, DocumentManager documentManager,
                            TextAnalysisService textAnalysisService, VocabularyService vocabularyService,
-                           ChangeRecordService changeRecordService) {
+                           ChangeRecordService changeRecordService, PersistenceUtils persistenceUtils) {
         this.repositoryService = repositoryService;
         this.documentManager = documentManager;
         this.textAnalysisService = textAnalysisService;
         this.vocabularyService = vocabularyService;
         this.changeRecordService = changeRecordService;
+        this.persistenceUtils = persistenceUtils;
     }
 
     /**
@@ -294,7 +299,10 @@ public class ResourceService
             textAnalysisService.analyzeFile(file,
                     includeImportedVocabularies(Collections.singleton(file.getDocument().getVocabulary())));
         } else {
-            textAnalysisService.analyzeFile(file, includeImportedVocabularies(vocabularies));
+            final Set<URI> vocabularyContexts = vocabularies
+                    .stream().map(persistenceUtils::resolveVocabularyContext)
+                    .collect(Collectors.toSet());
+            textAnalysisService.analyzeFile(file, vocabularyContexts);
         }
     }
 
