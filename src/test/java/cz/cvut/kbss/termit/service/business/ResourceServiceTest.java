@@ -24,6 +24,7 @@ import cz.cvut.kbss.termit.model.changetracking.AbstractChangeRecord;
 import cz.cvut.kbss.termit.model.resource.Document;
 import cz.cvut.kbss.termit.model.resource.File;
 import cz.cvut.kbss.termit.model.resource.Resource;
+import cz.cvut.kbss.termit.persistence.PersistenceUtils;
 import cz.cvut.kbss.termit.service.document.DocumentManager;
 import cz.cvut.kbss.termit.service.document.TextAnalysisService;
 import cz.cvut.kbss.termit.service.repository.ChangeRecordService;
@@ -65,6 +66,9 @@ class ResourceServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private PersistenceUtils persistenceUtils;
 
     @InjectMocks
     private ResourceService sut;
@@ -260,28 +264,6 @@ class ResourceServiceTest {
         expected.add(vocabulary.getUri());
         verify(textAnalysisService).analyzeFile(file, expected);
         verify(vocabularyService).getTransitiveDependencies(vocabulary);
-    }
-
-    @Test
-    void runTextAnalysisInvokesAnalysisWithProvidedVocabulariesAndTheirImports() {
-        final File file = Generator.generateFileWithId("test.html");
-        final Vocabulary vOne = Generator.generateVocabularyWithId();
-        final Set<URI> vOneImports = new HashSet<>(Arrays.asList(Generator.generateUri(), Generator.generateUri()));
-        final Vocabulary vTwo = Generator.generateVocabularyWithId();
-        final Set<URI> vTwoImports = Collections.singleton(Generator.generateUri());
-        when(vocabularyService.getRequiredReference(vOne.getUri())).thenReturn(vOne);
-        when(vocabularyService.getTransitiveDependencies(vOne)).thenReturn(vOneImports);
-        when(vocabularyService.getRequiredReference(vTwo.getUri())).thenReturn(vTwo);
-        when(vocabularyService.getTransitiveDependencies(vTwo)).thenReturn(vTwoImports);
-
-        sut.runTextAnalysis(file, new HashSet<>(Arrays.asList(vOne.getUri(), vTwo.getUri())));
-        final Set<URI> expected = new HashSet<>(vOneImports);
-        expected.addAll(vTwoImports);
-        expected.add(vOne.getUri());
-        expected.add(vTwo.getUri());
-        verify(textAnalysisService).analyzeFile(file, expected);
-        verify(vocabularyService).getTransitiveDependencies(vOne);
-        verify(vocabularyService).getTransitiveDependencies(vTwo);
     }
 
     @Test
