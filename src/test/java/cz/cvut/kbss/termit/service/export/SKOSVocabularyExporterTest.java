@@ -4,7 +4,6 @@ import cz.cvut.kbss.termit.environment.Generator;
 import cz.cvut.kbss.termit.model.Term;
 import cz.cvut.kbss.termit.model.Vocabulary;
 import cz.cvut.kbss.termit.persistence.DescriptorFactory;
-import cz.cvut.kbss.termit.util.ConfigParam;
 import cz.cvut.kbss.termit.util.Configuration;
 import cz.cvut.kbss.termit.util.Constants;
 import cz.cvut.kbss.termit.util.TypeAwareResource;
@@ -27,7 +26,9 @@ import org.springframework.http.MediaType;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.not;
@@ -37,6 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
+
+    private static final IRI[] REFERENCING_PROPERTIES = {SKOS.BROAD_MATCH, SKOS.EXACT_MATCH, SKOS.RELATED_MATCH};
 
     @Autowired
     private DescriptorFactory descriptorFactory;
@@ -65,8 +68,8 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsGlossaryInfo() throws IOException {
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+    void exportGlossaryExportsGlossaryInfo() throws IOException {
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model, hasItem(vf
                 .createStatement(glossaryIri(vocabulary), RDF.TYPE, SKOS.CONCEPT_SCHEME)));
@@ -94,7 +97,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsImportsOfOtherGlossariesAsOWLImports() throws IOException {
+    void exportGlossaryExportsImportsOfOtherGlossariesAsOWLImports() throws IOException {
         final Vocabulary anotherVocabulary = Generator.generateVocabularyWithId();
         transactional(() -> {
             em.persist(anotherVocabulary, descriptorFactory.vocabularyDescriptor(anotherVocabulary));
@@ -102,17 +105,17 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
             Generator.addVocabularyDependencyRelationship(vocabulary, anotherVocabulary, em);
         });
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 hasItem(vf.createStatement(glossaryIri(vocabulary), OWL.IMPORTS, glossaryIri(anotherVocabulary))));
     }
 
     @Test
-    void exportVocabularyGlossaryExportsProvenanceRightsStatusVersionNamespace() throws IOException {
+    void exportGlossaryExportsProvenanceRightsStatusVersionNamespace() throws IOException {
         insertAdditionalGlossaryData();
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertTrue(model.contains(glossaryIri(vocabulary), OWL.VERSIONIRI, null));
         assertTrue(model.contains(glossaryIri(vocabulary), DCTERMS.CREATOR, null));
@@ -145,9 +148,9 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsTermsInVocabularyAsSKOSConceptsInScheme() throws Exception {
+    void exportGlossaryExportsTermsInVocabularyAsSKOSConceptsInScheme() throws Exception {
         final List<Term> terms = generateTerms();
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         for (Term t : terms) {
             assertThat(model,
@@ -158,11 +161,11 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsTermsWithSKOSPropertiesAndDcSource() throws Exception {
+    void exportGlossaryExportsTermsWithSKOSPropertiesAndDcSource() throws Exception {
         final List<Term> terms = generateTerms();
         final Term withAltLabels = terms.get(Generator.randomIndex(terms));
         insertAltLabels(withAltLabels);
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         for (Term t : terms) {
             t.getLabel().getValue().forEach((lang, val) -> assertThat(model,
@@ -207,7 +210,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsHierarchicalStructureOfTerms() throws Exception {
+    void exportGlossaryExportsHierarchicalStructureOfTerms() throws Exception {
         final List<Term> terms = generateTerms();
         final Term withParent = terms.get(1);
         withParent.addParentTerm(terms.get(0));
@@ -215,7 +218,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         withParent.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(withParent, descriptorFactory.termDescriptor(withParent)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         for (Term t : terms) {
             if (t.equals(withParent)) {
@@ -232,7 +235,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsRelatedTerms() throws Exception {
+    void exportGlossaryExportsRelatedTerms() throws Exception {
         final List<Term> terms = generateTerms();
         final Term withRelated = terms.get(0);
         final Term related = terms.get(terms.size() - 1);
@@ -242,14 +245,14 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         withRelated.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(withRelated, descriptorFactory.termDescriptor(withRelated)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model, hasItem(vf.createStatement(vf.createIRI(withRelated.getUri().toString()), SKOS.RELATED,
                 vf.createIRI(related.getUri().toString()))));
     }
 
     @Test
-    void exportVocabularyGlossaryExportsTermAsTopConceptIfParentIsInDifferentVocabulary() throws Exception {
+    void exportGlossaryExportsTermAsTopConceptIfParentIsInDifferentVocabulary() throws Exception {
         final List<Term> terms = generateTerms();
         final Term affectedTerm = terms.get(Generator.randomIndex(terms));
         final Vocabulary anotherVocabulary = Generator.generateVocabularyWithId();
@@ -267,7 +270,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
             Generator.addVocabularyDependencyRelationship(vocabulary, anotherVocabulary, em);
         });
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 hasItem(vf.createStatement(vf.createIRI(affectedTerm.getUri().toString()), SKOS.TOP_CONCEPT_OF,
@@ -275,7 +278,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsCustomTypeAsSuperType() throws Exception {
+    void exportGlossaryExportsCustomTypeAsSuperType() throws Exception {
         final List<Term> terms = generateTerms();
         final Term typed = terms.get(Generator.randomIndex(terms));
         final String type = "http://onto.fel.cvut.cz/ontologies/ufo/object-type";
@@ -284,7 +287,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         typed.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(typed, descriptorFactory.termDescriptor(typed)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 hasItem(vf.createStatement(vf.createIRI(typed.getUri().toString()), RDF.TYPE,
@@ -292,7 +295,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsSuperClassesAsBroader() throws Exception {
+    void exportGlossaryExportsSuperClassesAsBroader() throws Exception {
         final List<Term> terms = generateTerms();
         final Term rdfsSubclass = terms.get(0);
         final String supertype = Generator.generateUri().toString();
@@ -302,7 +305,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         rdfsSubclass.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(rdfsSubclass, descriptorFactory.termDescriptor(rdfsSubclass)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 hasItem(vf.createStatement(vf.createIRI(rdfsSubclass.getUri().toString()), SKOS.BROADER,
@@ -310,7 +313,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsPartOfAsBroader() throws Exception {
+    void exportGlossaryExportsPartOfAsBroader() throws Exception {
         final List<Term> terms = generateTerms();
         final Term partOf = terms.get(0);
         final Term hasPart = terms.get(1);
@@ -321,7 +324,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         hasPart.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(hasPart, descriptorFactory.termDescriptor(hasPart)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 hasItem(vf.createStatement(vf.createIRI(partOf.getUri().toString()), SKOS.BROADER,
@@ -329,7 +332,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossaryExportsParticipationAsBroader() throws Exception {
+    void exportGlossaryExportsParticipationAsBroader() throws Exception {
         final List<Term> terms = generateTerms();
         final Term participant = terms.get(0);
         final Term parent = terms.get(1);
@@ -340,7 +343,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         parent.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(parent, descriptorFactory.termDescriptor(parent)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 hasItem(vf.createStatement(vf.createIRI(participant.getUri().toString()), SKOS.BROADER,
@@ -348,7 +351,7 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
     }
 
     @Test
-    void exportVocabularyGlossarySkipsOwlConstructsUsedToClassifyTerms() throws Exception {
+    void exportGlossarySkipsOwlConstructsUsedToClassifyTerms() throws Exception {
         final List<Term> terms = generateTerms();
         final Term withOwl = terms.get(Generator.randomIndex(terms));
         withOwl.addType(OWL.CLASS.stringValue());
@@ -356,14 +359,14 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         withOwl.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(withOwl, descriptorFactory.termDescriptor(withOwl)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 not(hasItem(vf.createStatement(vf.createIRI(withOwl.getUri().toString()), SKOS.BROADER, OWL.CLASS))));
     }
 
     @Test
-    void exportVocabularyGlossarySkipsOwlConstructsUsedAsTermSuperTypes() throws Exception {
+    void exportGlossarySkipsOwlConstructsUsedAsTermSuperTypes() throws Exception {
         final List<Term> terms = generateTerms();
         final Term withOwl = terms.get(Generator.randomIndex(terms));
         withOwl.setProperties(Collections
@@ -372,10 +375,59 @@ class SKOSVocabularyExporterTest extends VocabularyExporterTestBase {
         withOwl.setVocabulary(vocabulary.getUri());
         transactional(() -> em.merge(withOwl, descriptorFactory.termDescriptor(withOwl)));
 
-        final TypeAwareResource result = sut.exportVocabularyGlossary(vocabulary);
+        final TypeAwareResource result = sut.exportGlossary(vocabulary);
         final Model model = loadAsModel(result);
         assertThat(model,
                 not(hasItem(vf.createStatement(vf.createIRI(withOwl.getUri().toString()), SKOS.BROADER,
                         OWL.OBJECTPROPERTY))));
+    }
+
+    @Test
+    void exportGlossaryWithReferencesIncludesExternalTermsReferencedViaSpecifiedProperties() throws Exception {
+        final List<Term> terms = generateTerms();
+        final Vocabulary anotherVocabulary = Generator.generateVocabularyWithId();
+        transactional(() -> em.persist(anotherVocabulary, descriptorFactory.vocabularyDescriptor(anotherVocabulary)));
+        final List<Term> externalTerms = generateTerms(anotherVocabulary);
+        final IRI property = REFERENCING_PROPERTIES[Generator.randomIndex(REFERENCING_PROPERTIES)];
+        final Set<Term> referencedExternal = generateReferences(terms, externalTerms, property);
+
+        final TypeAwareResource result = sut.exportGlossaryWithReferences(vocabulary, Collections.singleton(property.stringValue()));
+        final Model model = loadAsModel(result);
+        referencedExternal.forEach(rt -> assertThat(model,
+                hasItem(vf.createStatement(vf.createIRI(rt.getUri().toString()), RDF.TYPE, SKOS.CONCEPT))));
+    }
+
+    private Set<Term> generateReferences(List<Term> terms, List<Term> externalTerms, IRI property) {
+        final Set<Term> referencedTerms = new HashSet<>();
+        transactional(() -> {
+            final Repository repo = em.unwrap(Repository.class);
+            try (final RepositoryConnection con = repo.getConnection()) {
+                con.begin();
+                final IRI ctx = vf.createIRI(vocabulary.getUri().toString());
+                terms.forEach(t -> {
+                    final Term referenced = externalTerms.get(Generator.randomIndex(externalTerms));
+                    con.add(vf.createIRI(t.getUri().toString()), property, vf.createIRI(referenced.getUri()
+                                                                                                  .toString()), ctx);
+                    referencedTerms.add(referenced);
+                });
+                con.commit();
+            }
+        });
+        return referencedTerms;
+    }
+
+    @Test
+    void exportGlossaryWithReferencesExportsGlossariesOfReferencedTerms() throws Exception {
+        final List<Term> terms = generateTerms();
+        final Vocabulary anotherVocabulary = Generator.generateVocabularyWithId();
+        transactional(() -> em.persist(anotherVocabulary, descriptorFactory.vocabularyDescriptor(anotherVocabulary)));
+        final List<Term> externalTerms = generateTerms(anotherVocabulary);
+        final IRI property = REFERENCING_PROPERTIES[Generator.randomIndex(REFERENCING_PROPERTIES)];
+        generateReferences(terms, externalTerms, property);
+
+        final TypeAwareResource result = sut.exportGlossaryWithReferences(vocabulary, Collections.singleton(property.stringValue()));
+        final Model model = loadAsModel(result);
+        assertThat(model, hasItem(vf.createStatement(vf.createIRI(anotherVocabulary.getGlossary().getUri()
+                                                                                   .toString()), RDF.TYPE, SKOS.CONCEPT_SCHEME)));
     }
 }

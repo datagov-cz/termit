@@ -1,6 +1,7 @@
 package cz.cvut.kbss.termit.service.business;
 
 import cz.cvut.kbss.jopa.model.MultilingualString;
+import cz.cvut.kbss.jopa.vocabulary.SKOS;
 import cz.cvut.kbss.termit.dto.TermInfo;
 import cz.cvut.kbss.termit.dto.assignment.TermAssignments;
 import cz.cvut.kbss.termit.dto.listing.TermDto;
@@ -79,11 +80,11 @@ class TermServiceTest {
     void exportGlossaryGetsGlossaryExportForSpecifiedVocabularyFromExporters() {
         final TypeAwareByteArrayResource resource = new TypeAwareByteArrayResource("test".getBytes(),
                 CsvUtils.MEDIA_TYPE, CsvUtils.FILE_EXTENSION);
-        when(exporters.exportVocabularyGlossary(vocabulary, CsvUtils.MEDIA_TYPE)).thenReturn(Optional.of(resource));
+        when(exporters.exportGlossary(vocabulary, CsvUtils.MEDIA_TYPE)).thenReturn(Optional.of(resource));
         final Optional<TypeAwareResource> result = sut.exportGlossary(vocabulary, CsvUtils.MEDIA_TYPE);
         assertTrue(result.isPresent());
         assertEquals(resource, result.get());
-        verify(exporters).exportVocabularyGlossary(vocabulary, CsvUtils.MEDIA_TYPE);
+        verify(exporters).exportGlossary(vocabulary, CsvUtils.MEDIA_TYPE);
     }
 
     @Test
@@ -443,5 +444,17 @@ class TermServiceTest {
 
         sut.update(update);
         verify(vocabularyService).runTextAnalysisOnAllTerms(vocabulary);
+    }
+
+    @Test
+    void exportGlossaryWithReferencesGetsGlossaryExportWithReferencesForSpecifiedVocabularyFromExporters() {
+        final TypeAwareByteArrayResource resource = new TypeAwareByteArrayResource("test".getBytes(),
+                CsvUtils.MEDIA_TYPE, CsvUtils.FILE_EXTENSION);
+        final Collection<String> properties = Collections.singleton(SKOS.EXACT_MATCH);
+        when(exporters.exportGlossaryWithReferences(vocabulary, properties, CsvUtils.MEDIA_TYPE)).thenReturn(Optional.of(resource));
+        final Optional<TypeAwareResource> result = sut.exportGlossaryWithReferences(vocabulary, properties, CsvUtils.MEDIA_TYPE);
+        assertTrue(result.isPresent());
+        assertEquals(resource, result.get());
+        verify(exporters).exportGlossaryWithReferences(vocabulary, properties, CsvUtils.MEDIA_TYPE);
     }
 }

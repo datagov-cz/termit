@@ -33,8 +33,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/")
@@ -105,6 +107,9 @@ public class TermController extends BaseController {
      * @param vocabularyIdFragment Vocabulary name
      * @param namespace            Vocabulary namespace. Optional
      * @param searchString         String to filter term labels by. Optional
+     * @param withReferences       Whether to include terms from other vocabularies referenced by terms from the vocabulary being exported. Relevant only for term export. Optional, defaults to false
+     * @param properties           A set of properties representing references to terms from other vocabularies to take into account in export. Relevant only for term export. Optional
+     * @param acceptType           MIME type accepted by the client, relevant only for term export
      * @return List of terms of the specific vocabulary
      */
     @GetMapping(value = "/vocabularies/{vocabularyIdFragment}/terms",
@@ -114,31 +119,36 @@ public class TermController extends BaseController {
                             Excel.MEDIA_TYPE,
                             Turtle.MEDIA_TYPE})
     public ResponseEntity<?> getAll(@PathVariable String vocabularyIdFragment,
-                                    @RequestParam(name = QueryParams.NAMESPACE, required = false) Optional<String> namespace,
+                                    @RequestParam(name = QueryParams.NAMESPACE,
+                                                  required = false) Optional<String> namespace,
                                     @RequestParam(name = "searchString", required = false) String searchString,
+                                    @RequestParam(name = "withReferences", required = false) boolean withReferences,
+                                    @RequestParam(name = "property", required = false,
+                                                  defaultValue = "[]") Set<String> properties,
                                     @RequestHeader(value = HttpHeaders.ACCEPT, required = false) String acceptType) {
         final URI vocabularyUri = getVocabularyUri(namespace, vocabularyIdFragment);
         final Vocabulary vocabulary = getVocabulary(vocabularyUri);
         if (searchString != null) {
             return ResponseEntity.ok(termService.findAll(searchString, vocabulary));
         }
-        final Optional<ResponseEntity<?>> export = exportTerms(vocabulary, vocabularyIdFragment, acceptType);
+        final Optional<ResponseEntity<?>> export = exportTerms(vocabulary, withReferences, properties, acceptType);
         return export.orElse(ResponseEntity
                 .ok(termService.findAll(vocabulary)));
     }
 
-    private Optional<ResponseEntity<?>> exportTerms(Vocabulary vocabulary, String fileName,
-                                                    String mediaType) {
-        final Optional<TypeAwareResource> content = termService.exportGlossary(vocabulary, mediaType);
+    private Optional<ResponseEntity<?>> exportTerms(Vocabulary vocabulary, boolean withReferences,
+                                                    Collection<String> properties, String mediaType) {
+        final Optional<TypeAwareResource> content = withReferences ?
+                termService.exportGlossaryWithReferences(vocabulary, properties, mediaType) : termService.exportGlossary(vocabulary, mediaType);
         return content.map(r -> {
             try {
                 return ResponseEntity.ok()
-                        .contentLength(r.contentLength())
-                        .contentType(MediaType.parseMediaType(mediaType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION,
-                                "attachment; filename=\"" + fileName +
-                                        r.getFileExtension().orElse("") + "\"")
-                        .body(r);
+                                     .contentLength(r.contentLength())
+                                     .contentType(MediaType.parseMediaType(mediaType))
+                                     .header(HttpHeaders.CONTENT_DISPOSITION,
+                                             "attachment; filename=\"" + IdentifierResolver.extractIdentifierFragment(vocabulary.getUri()) +
+                                                     r.getFileExtension().orElse("") + "\"")
+                                     .body(r);
             } catch (IOException e) {
                 throw new TermItException("Unable to export terms.", e);
             }
@@ -194,7 +204,8 @@ public class TermController extends BaseController {
     @GetMapping(value = "/vocabularies/{vocabularyIdFragment}/terms/roots",
                 produces = {MediaType.APPLICATION_JSON_VALUE, JsonLd.MEDIA_TYPE})
     public List<TermDto> getAllRoots(@PathVariable String vocabularyIdFragment,
-                                     @RequestParam(name = QueryParams.NAMESPACE, required = false) Optional<String> namespace,
+                                     @RequestParam(name = QueryParams.NAMESPACE,
+                                                   required = false) Optional<String> namespace,
                                      @RequestParam(name = QueryParams.PAGE_SIZE, required = false) Integer pageSize,
                                      @RequestParam(name = QueryParams.PAGE, required = false) Integer pageNo,
                                      @RequestParam(name = "includeTerms", required = false, defaultValue = "") List<URI> includeTerms) {
@@ -328,7 +339,7 @@ public class TermController extends BaseController {
     }
 
     /**
-     * @see #updateStatus(String, String, String, String)
+     * @see #updateStatus(String, String, String)
      */
     @PutMapping(value = "terms/{termIdFragment}/status", consumes = MediaType.ALL_VALUE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -378,7 +389,8 @@ public class TermController extends BaseController {
                 produces = {MediaType.APPLICATION_JSON_VALUE, JsonLd.MEDIA_TYPE})
     public List<Term> getSubTerms(@PathVariable("vocabularyIdFragment") String vocabularyIdFragment,
                                   @PathVariable("termIdFragment") String termIdFragment,
-                                  @RequestParam(name = QueryParams.NAMESPACE, required = false) Optional<String> namespace) {
+                                  @RequestParam(name = QueryParams.NAMESPACE,
+                                                required = false) Optional<String> namespace) {
         final Term parent = getById(vocabularyIdFragment, termIdFragment, namespace);
         return termService.findSubTerms(parent);
     }
@@ -593,7 +605,8 @@ public class TermController extends BaseController {
                 produces = {MediaType.APPLICATION_JSON_VALUE, JsonLd.MEDIA_TYPE})
     public List<Comment> getComments(@PathVariable("vocabularyIdFragment") String vocabularyIdFragment,
                                      @PathVariable("termIdFragment") String termIdFragment,
-                                     @RequestParam(name = QueryParams.NAMESPACE, required = false) Optional<String> namespace) {
+                                     @RequestParam(name = QueryParams.NAMESPACE,
+                                                   required = false) Optional<String> namespace) {
         final URI termUri = getTermUri(vocabularyIdFragment, termIdFragment, namespace);
         return termService.getComments(termService.getRequiredReference(termUri));
     }

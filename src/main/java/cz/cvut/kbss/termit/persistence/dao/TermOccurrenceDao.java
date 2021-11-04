@@ -15,7 +15,10 @@
 package cz.cvut.kbss.termit.persistence.dao;
 
 import cz.cvut.kbss.jopa.model.EntityManager;
+import cz.cvut.kbss.jopa.model.descriptors.Descriptor;
+import cz.cvut.kbss.jopa.model.descriptors.EntityDescriptor;
 import cz.cvut.kbss.jopa.model.query.Query;
+import cz.cvut.kbss.jopa.vocabulary.RDFS;
 import cz.cvut.kbss.termit.asset.provenance.ModifiesData;
 import cz.cvut.kbss.termit.exception.PersistenceException;
 import cz.cvut.kbss.termit.model.Asset;
@@ -23,7 +26,8 @@ import cz.cvut.kbss.termit.model.Term;
 import cz.cvut.kbss.termit.model.assignment.TermOccurrence;
 import cz.cvut.kbss.termit.persistence.dao.util.SparqlResultToTermOccurrenceMapper;
 import cz.cvut.kbss.termit.util.Vocabulary;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import java.net.URI;
@@ -32,6 +36,8 @@ import java.util.Objects;
 
 @Repository
 public class TermOccurrenceDao extends BaseDao<TermOccurrence> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TermOccurrenceDao.class);
 
     /**
      * Perf #1283
@@ -64,7 +70,6 @@ public class TermOccurrenceDao extends BaseDao<TermOccurrence> {
                     "BIND(EXISTS { ?occ a ?suggestedType . } as ?suggested)" +
                     "} GROUP BY ?occ ?type ?term ?target ?suggested ?selector ?exactMatch ?prefix ?suffix ?startPosition ?endPosition";
 
-    @Autowired
     public TermOccurrenceDao(EntityManager em) {
         super(TermOccurrence.class, em);
     }
@@ -78,8 +83,8 @@ public class TermOccurrenceDao extends BaseDao<TermOccurrence> {
     public List<TermOccurrence> findAllOf(Term term) {
         Objects.requireNonNull(term);
         return em.createNativeQuery("SELECT ?x WHERE {" +
-                "?x a ?type ;" +
-                "?hasTerm ?term . }", TermOccurrence.class)
+                         "?x a ?type ;" +
+                         "?hasTerm ?term . }", TermOccurrence.class)
                  .setParameter("type", typeUri)
                  .setParameter("hasTerm", URI.create(Vocabulary.s_p_je_prirazenim_termu))
                  .setParameter("term", term.getUri()).getResultList();
@@ -133,10 +138,11 @@ public class TermOccurrenceDao extends BaseDao<TermOccurrence> {
     public void persist(TermOccurrence entity) {
         Objects.requireNonNull(entity);
         try {
-            em.persist(entity);
+            final Descriptor descriptor = new EntityDescriptor(entity.resolveContext());
+            em.persist(entity, descriptor);
             // Ensure target is saved as well
             if (entity.getTarget().getUri() == null) {
-                em.persist(entity.getTarget());
+                em.persist(entity.getTarget(), descriptor);
             }
         } catch (RuntimeException e) {
             throw new PersistenceException(e);
@@ -150,24 +156,24 @@ public class TermOccurrenceDao extends BaseDao<TermOccurrence> {
      */
     public void removeSuggested(Asset<?> target) {
         Objects.requireNonNull(target);
-        removeAll(target, URI.create(Vocabulary.s_c_navrzeny_vyskyt_termu));
+        removeAll(target.getUri(), URI.create(Vocabulary.s_c_navrzeny_vyskyt_termu));
     }
 
-    private void removeAll(Asset<?> asset, URI toType) {
-        Objects.requireNonNull(asset);
+    private void removeAll(URI assetUri, URI toType) {
         em.createNativeQuery("DELETE WHERE {" +
-                "?x a ?toType ;" +
-                "?hasTarget ?target ;" +
-                "?y ?z ." +
-                "?target a ?occurrenceTarget ;" +
-                "?hasSelector ?selector ;" +
-                "?hasSource ?asset ." +
-                "?target ?tY ?tZ ." +
-                "?selector ?sY ?sZ . }")
+                  "?x a ?toType ;" +
+                  "?hasTarget ?target ;" +
+                  "?y ?z ." +
+                  "?target a ?occurrenceTarget ;" +
+                  "?hasSelector ?selector ;" +
+                  "?hasSource ?asset ." +
+                  "?target ?tY ?tZ ." +
+                  "?selector ?sY ?sZ . }")
           .setParameter("toType", toType)
           .setParameter("hasTarget", URI.create(Vocabulary.s_p_ma_cil))
           .setParameter("occurrenceTarget", URI.create(Vocabulary.s_c_cil_vyskytu))
-          .setParameter("asset", asset.getUri())
+          .setParameter("hasSource", URI.create(Vocabulary.s_p_ma_zdroj))
+          .setParameter("asset", assetUri)
           .setParameter("hasSelector", URI.create(Vocabulary.s_p_ma_selektor)).executeUpdate();
     }
 
@@ -178,6 +184,33 @@ public class TermOccurrenceDao extends BaseDao<TermOccurrence> {
      */
     public void removeAll(Asset<?> target) {
         Objects.requireNonNull(target);
-        removeAll(target, URI.create(Vocabulary.s_c_vyskyt_termu));
+
+        em.createNativeQuery("DROP GRAPH ?g")
+          .setParameter("g", TermOccurrence.resolveContext(target.getUri()))
+          .executeUpdate();
+    }
+
+    /**
+     * Removes all term occurrence whose target points to a non-existent asset.
+     * <p>
+     * This method exists mainly for legacy reasons - since occurrences are now stored in a particular context,
+     * their batch removal (e.g., on corresponding asset remove) is implemented by dropping the whole context. However,
+     * old occurrences were stored in the default context and thus the new removal logic does not affect them. This method
+     * allows targeting such occurrences.
+     */
+    public void removeAllOrphans() {
+        em.createNativeQuery("SELECT DISTINCT ?source WHERE {" +
+                  "?t a ?target ;" +
+                  "?hasSource ?source ." +
+                  // If an asset does not have a label, it does not exist
+                  "FILTER NOT EXISTS { ?source ?hasLabel ?label . }" +
+                  "}", URI.class)
+          .setParameter("target", URI.create(Vocabulary.s_c_cil_vyskytu))
+          .setParameter("hasSource", URI.create(Vocabulary.s_p_ma_zdroj))
+          .setParameter("hasLabel", URI.create(RDFS.LABEL))
+          .getResultStream().forEach(a -> {
+              LOG.trace("Removing orphaned term occurrences targeting <{}>.", a);
+              removeAll(a, URI.create(Vocabulary.s_c_vyskyt_termu));
+          });
     }
 }

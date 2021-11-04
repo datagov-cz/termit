@@ -63,6 +63,13 @@ public class Constants {
     public static final Double SCORE_THRESHOLD = 0.49;
 
     /**
+     * CRON pattern for executing scheduled actions.
+     *
+     * Indicates that the scheduled actions should be executed at 1:10 every day.
+     */
+    public static final String SCHEDULING_PATTERN = "0 1 1 * * ?";
+
+    /**
      * Session attribute denoting the current user's workspace.
      */
     public static final String WORKSPACE_SESSION_ATT = "workspace";

@@ -15,6 +15,8 @@
 package cz.cvut.kbss.termit.persistence.dao;
 
 import cz.cvut.kbss.jopa.model.EntityManager;
+import cz.cvut.kbss.jopa.model.descriptors.Descriptor;
+import cz.cvut.kbss.jopa.model.descriptors.EntityDescriptor;
 import cz.cvut.kbss.termit.environment.Environment;
 import cz.cvut.kbss.termit.environment.Generator;
 import cz.cvut.kbss.termit.model.Term;
@@ -33,9 +35,13 @@ import java.util.stream.Collectors;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyCollectionOf;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TermOccurrenceDaoTest extends BaseDaoTestRunner {
+
+    private static final String FILE_LABEL = "test.html";
 
     @Autowired
     private EntityManager em;
@@ -70,7 +76,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
         final File[] filesToProcess;
         if (files.length == 0) {
             final File file = new File();
-            file.setLabel("test.html");
+            file.setLabel(FILE_LABEL);
             filesToProcess = new File[]{file};
         } else {
             filesToProcess = files;
@@ -93,9 +99,9 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
                 to.addType(Vocabulary.s_c_navrzeny_vyskyt_termu);
             }
             final FileOccurrenceTarget target = new FileOccurrenceTarget(filesToProcess.length > 1 ?
-                                                                         filesToProcess[Generator
-                                                                                 .randomInt(0, filesToProcess.length)] :
-                                                                         filesToProcess[0]);
+                    filesToProcess[Generator
+                            .randomInt(0, filesToProcess.length)] :
+                    filesToProcess[0]);
             final TextQuoteSelector selector = new TextQuoteSelector("test");
             selector.setPrefix("this is a ");
             selector.setSuffix(".");
@@ -116,8 +122,9 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
             map.forEach((t, list) -> {
                 em.persist(t);
                 list.forEach(ta -> {
-                    em.persist(ta.getTarget());
-                    em.persist(ta);
+                    final Descriptor descriptor = new EntityDescriptor(ta.resolveContext());
+                    em.persist(ta.getTarget(), descriptor);
+                    em.persist(ta, descriptor);
                 });
             });
         });
@@ -132,7 +139,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
         fTwo.setLabel("fTwo.html");
         final Map<Term, List<TermOccurrence>> allOccurrences = generateOccurrences(false, fOne, fTwo);
         final List<TermOccurrence> matching = allOccurrences.values().stream().flatMap(
-                l -> l.stream().filter(to -> to.getTarget().getSource().equals(fOne.getUri())))
+                                                                    l -> l.stream().filter(to -> to.getTarget().getSource().equals(fOne.getUri())))
                                                             .collect(Collectors.toList());
 
         em.getEntityManagerFactory().getCache().evictAll();
@@ -150,7 +157,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
         fOne.setLabel("fOne.html");
         final File fTwo = new File();
         fTwo.setLabel("fTwo.html");
-        generateOccurrences(false, fOne);
+        generateOccurrences(false, fOne, fTwo);
 
         em.getEntityManagerFactory().getCache().evictAll();
         final List<TermOccurrence> result = sut.findAllTargeting(fOne);
@@ -185,7 +192,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
     @Test
     void removeSuggestedRemovesOccurrencesForFile() {
         final File file = new File();
-        file.setLabel("test.html");
+        file.setLabel(FILE_LABEL);
         generateOccurrences(true, file);
         assertFalse(sut.findAllTargeting(file).isEmpty());
         transactional(() -> sut.removeSuggested(file));
@@ -197,7 +204,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
     @Test
     void removeSuggestedRetainsConfirmedOccurrences() {
         final File file = new File();
-        file.setLabel("test.html");
+        file.setLabel(FILE_LABEL);
         final Map<Term, List<TermOccurrence>> allOccurrences = generateOccurrences(true, file);
         assertFalse(sut.findAllTargeting(file).isEmpty());
         final List<TermOccurrence> retained = new ArrayList<>();
@@ -215,8 +222,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
 
     @Test
     void removeAllRemovesSuggestedAndConfirmedOccurrences() {
-        final File file = new File();
-        file.setLabel("test.html");
+        final File file = Generator.generateFileWithId(FILE_LABEL);
         final Map<Term, List<TermOccurrence>> allOccurrences = generateOccurrences(true, file);
         assertFalse(sut.findAllTargeting(file).isEmpty());
         transactional(() -> allOccurrences
@@ -233,7 +239,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
     @Test
     void removeAllRemovesAlsoOccurrenceTargets() {
         final File file = new File();
-        file.setLabel("test.html");
+        file.setLabel(FILE_LABEL);
         final Map<Term, List<TermOccurrence>> allOccurrences = generateOccurrences(true, file);
         assertFalse(sut.findAllTargeting(file).isEmpty());
         transactional(() -> allOccurrences
@@ -285,7 +291,7 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
     }
 
     private void generateFileOccurrence(Term of) {
-        final File file = Generator.generateFileWithId("test.html");
+        final File file = Generator.generateFileWithId(FILE_LABEL);
         final FileOccurrenceTarget target = new FileOccurrenceTarget(file);
         target.setSelectors(Collections.singleton(new TextQuoteSelector("test")));
         final TermFileOccurrence occurrence = new TermFileOccurrence(of.getUri(), target);
@@ -294,5 +300,31 @@ class TermOccurrenceDaoTest extends BaseDaoTestRunner {
             em.persist(occurrence);
             em.persist(target);
         });
+    }
+
+    @Test
+    void persistSavesTermOccurrenceWithTargetIntoGeneratedContext() {
+        final File file = Generator.generateFileWithId(FILE_LABEL);
+        transactional(() -> em.persist(file));
+        final TermOccurrence occurrence = new TermFileOccurrence(Generator.generateUri(), new FileOccurrenceTarget(file));
+        occurrence.getTarget().setSelectors(Collections.singleton(new TextQuoteSelector("test")));
+
+        transactional(() -> sut.persist(occurrence));
+        assertNotNull(sut.find(occurrence.getUri()));
+        assertThat(sut.findAllTargeting(file), not(emptyCollectionOf(TermOccurrence.class)));
+        assertTrue(em.createNativeQuery("ASK WHERE { GRAPH ?g { ?x a ?occurrence .} }", Boolean.class)
+                     .setParameter("x", occurrence.getUri())
+                     .setParameter("occurrence", URI.create(Vocabulary.s_c_souborovy_vyskyt_termu))
+                     .getSingleResult());
+    }
+
+    @Test
+    void removeAllOrphansRemovesOccurrencesWithNonExistentTargetSource() {
+        final File file = Generator.generateFileWithId(FILE_LABEL);
+        generateOccurrences(true, file);
+        transactional(() -> em.remove(em.getReference(File.class, file.getUri())));
+        assertFalse(sut.findAllTargeting(file).isEmpty());
+        transactional(() -> sut.removeAllOrphans());
+        assertTrue(sut.findAllTargeting(file).isEmpty());
     }
 }
