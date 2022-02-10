@@ -436,6 +436,9 @@
                 <spring.profiles.active>lucene</spring.profiles.active>
             </properties>
         </profile>
+        <profile>
+            <id>no-cache</id>
+        </profile>
     </profiles>
 
     <build>
