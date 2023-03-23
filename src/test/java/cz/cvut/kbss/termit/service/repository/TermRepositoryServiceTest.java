@@ -142,6 +142,7 @@ class TermRepositoryServiceTest extends BaseServiceTestRunner {
 
     @Test
     void addTermToVocabularyThrowsResourceExistsExceptionWhenAnotherTermWithIdenticalAlreadyIriExists() {
+        enableRdfsInference(em);
         final Term term1 = Generator.generateTerm();
         URI uri = Generator.generateUri();
         term1.setUri(uri);
@@ -149,8 +150,7 @@ class TermRepositoryServiceTest extends BaseServiceTestRunner {
 
         final Term term2 = Generator.generateTerm();
         term2.setUri(uri);
-        assertThrows(
-                ResourceExistsException.class, () -> sut.addRootTermToVocabulary(term2, vocabulary));
+        assertThrows(ResourceExistsException.class, () -> sut.addRootTermToVocabulary(term2, vocabulary));
     }
 
     @Test
@@ -264,9 +264,11 @@ class TermRepositoryServiceTest extends BaseServiceTestRunner {
         child.setUri(existing.getUri());
         transactional(() -> {
             vocabulary.getGlossary().addRootTerm(parent);
-            em.persist(existing);
-            em.persist(parent);
-            em.merge(vocabulary.getGlossary());
+            em.persist(existing, descriptorFactory.termDescriptor(vocabulary));
+            em.persist(parent, descriptorFactory.termDescriptor(vocabulary));
+            em.merge(vocabulary.getGlossary(), descriptorFactory.glossaryDescriptor(vocabulary));
+            Generator.addTermInVocabularyRelationship(existing, vocabulary.getUri(), em);
+            Generator.addTermInVocabularyRelationship(parent, vocabulary.getUri(), em);
         });
 
         assertThrows(ResourceExistsException.class, () -> sut.addChildTerm(child, parent));
@@ -362,10 +364,10 @@ class TermRepositoryServiceTest extends BaseServiceTestRunner {
     void updateThrowsValidationExceptionForEmptyTermLabel() {
         final Term t = Generator.generateTermWithId();
         vocabulary.getGlossary().addRootTerm(t);
-        vocabulary.getGlossary().addRootTerm(t);
         transactional(() -> {
-            em.persist(t);
-            em.merge(vocabulary);
+            em.persist(t, descriptorFactory.termDescriptor(vocabulary));
+            em.merge(vocabulary, descriptorFactory.vocabularyDescriptor(vocabulary));
+            Generator.addTermInVocabularyRelationship(t, vocabulary.getUri(), em);
         });
 
         t.getLabel().remove(Environment.LANGUAGE);
